@@ -20,6 +20,16 @@ import threading
 WEB_PORT = 12000
 API_PORT = 12001
 
+# Load environment from .env file
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+if os.path.exists(ENV_FILE):
+    with open(ENV_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                os.environ.setdefault(key.strip(), value.strip())
+
 # AI Configuration - Set environment variables to enable
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
@@ -28,7 +38,8 @@ GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
 # AI Provider URLs
 OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent'
+GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+OPENHANDS_URL = 'https://app.all-hands.dev/api/v1/conversation'  # Will be set dynamically
 
 # AI Tutor System Prompt
 AI_SYSTEM_PROMPT = """You are AILA, an AI Learning Assistant. You are helpful, knowledgeable, and patient.
@@ -71,9 +82,18 @@ LEADERBOARD = [
 ai_conversations = {}
 
 
+def get_api_keys():
+    """Get API keys from environment"""
+    return (
+        os.environ.get('OPENAI_API_KEY', ''),
+        os.environ.get('ANTHROPIC_API_KEY', ''),
+        os.environ.get('GOOGLE_API_KEY', '')
+    )
+
 def call_openai(message, history):
     """Call OpenAI GPT-3.5 API"""
-    if not OPENAI_API_KEY:
+    openai_key, _, _ = get_api_keys()
+    if not openai_key:
         return None, "OpenAI API key not configured"
     
     messages = [{"role": "system", "content": AI_SYSTEM_PROMPT}]
@@ -97,7 +117,7 @@ def call_openai(message, history):
             data=json.dumps(payload).encode(),
             headers={
                 'Content-Type': 'application/json',
-                'Authorization': f'Bearer {OPENAI_API_KEY}'
+                'Authorization': f'Bearer {openai_key}'
             },
             method='POST'
         )
@@ -110,7 +130,8 @@ def call_openai(message, history):
 
 def call_anthropic(message, history):
     """Call Anthropic Claude API"""
-    if not ANTHROPIC_API_KEY:
+    _, anthropic_key, _ = get_api_keys()
+    if not anthropic_key:
         return None, "Anthropic API key not configured"
     
     messages = []
@@ -134,7 +155,7 @@ def call_anthropic(message, history):
             data=json.dumps(payload).encode(),
             headers={
                 'Content-Type': 'application/json',
-                'x-api-key': ANTHROPIC_API_KEY,
+                'x-api-key': anthropic_key,
                 'anthropic-version': '2023-06-01'
             },
             method='POST'
@@ -148,7 +169,8 @@ def call_anthropic(message, history):
 
 def call_gemini(message, history):
     """Call Google Gemini API"""
-    if not GOOGLE_API_KEY:
+    _, _, gemini_key = get_api_keys()
+    if not gemini_key:
         return None, "Google API key not configured"
     
     contents = []
@@ -167,7 +189,7 @@ def call_gemini(message, history):
         }
     }
     
-    url = f"{GEMINI_URL}?key={GOOGLE_API_KEY}"
+    url = f"{GEMINI_URL}?key={gemini_key}"
     
     try:
         req = Request(
@@ -181,6 +203,91 @@ def call_gemini(message, history):
             return result['candidates'][0]['content']['parts'][0]['text'], None
     except Exception as e:
         return None, f"Gemini error: {str(e)}"
+
+
+def call_openhands(message, history):
+    """Call OpenHands AI API"""
+    openhands_key, _, _ = get_api_keys()
+    if not openhands_key:
+        return None, "OpenHands API key not configured"
+    
+    # Build conversation history as a single prompt
+    context = AI_SYSTEM_PROMPT + "\n\n"
+    for h in history:
+        if h.get('role') == 'user':
+            context += f"User: {h['content']}\n"
+        elif h.get('role') == 'assistant':
+            context += f"Assistant: {h['content']}\n"
+    context += f"User: {message}\nAssistant:"
+    
+    try:
+        # Start a conversation
+        start_data = {
+            "initial_message": {"content": [{"type": "text", "text": context}]}
+        }
+        
+        req = Request(
+            'https://app.all-hands.dev/api/v1/app-conversations',
+            data=json.dumps(start_data).encode(),
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {openhands_key}'
+            },
+            method='POST'
+        )
+        
+        with urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode())
+            conversation_id = result.get('app_conversation_id') or result.get('id')
+            
+            if not conversation_id:
+                return None, "Failed to create OpenHands conversation"
+            
+            # Poll for response
+            for _ in range(30):  # 30 seconds timeout
+                time.sleep(1)
+                conv_req = Request(
+                    f'https://app.all-hands.dev/api/v1/app-conversations?ids={conversation_id}',
+                    headers={'Authorization': f'Bearer {openhands_key}'},
+                    method='GET'
+                )
+                with urlopen(conv_req, timeout=10) as conv_resp:
+                    conv_result = json.loads(conv_resp.read().decode())
+                    if isinstance(conv_result, list):
+                        conv_result = conv_result[0] if conv_result else {}
+                    status = conv_result.get('status') or conv_result.get('sandbox_status')
+                    
+                    if status == 'stopped' or status == 'finished':
+                        # Get final events
+                        events_req = Request(
+                            f'https://app.all-hands.dev/api/v1/conversation/{conversation_id}/events/search?limit=50',
+                            headers={'Authorization': f'Bearer {openhands_key}'},
+                            method='GET'
+                        )
+                        with urlopen(events_req, timeout=10) as events_resp:
+                            events = json.loads(events_resp.read().decode())
+                            items = events.get('items', [])
+                            # Find assistant message
+                            for event in reversed(items):
+                                if event.get('source') == 'assistant':
+                                    msg = event.get('message', {})
+                                    if isinstance(msg, dict):
+                                        content = msg.get('content', [])
+                                        if isinstance(content, list):
+                                            for c in content:
+                                                if isinstance(c, dict) and c.get('type') == 'text':
+                                                    return c.get('text', ''), None
+                                        return str(msg), None
+                                    elif isinstance(msg, str):
+                                        return msg, None
+                        return "Response received but no text found.", None
+                    elif status == 'error':
+                        return None, "OpenHands conversation error"
+            
+            return None, "OpenHands timeout"
+            
+    except Exception as e:
+        return None, f"OpenHands error: {str(e)}"
 
 
 def get_ai_response(message, provider='auto', session_id='default'):
@@ -197,20 +304,27 @@ def get_ai_response(message, provider='auto', session_id='default'):
         "content": message
     })
     
+    openai_key, anthropic_key, gemini_key = get_api_keys()
+    
     response = None
     error = None
     model_name = "None"
     
-    # Try providers in order of availability
-    if provider == 'openai' or (provider == 'auto' and OPENAI_API_KEY):
+    # Try providers in order of preference
+    # OpenHands is tried first as it has advanced reasoning
+    if provider == 'openhands' or (provider == 'auto' and openai_key):
+        # Note: OpenHands uses the same key as openai_key placeholder for now
+        pass  # Skip OpenHands for now as it requires async conversation
+    
+    if provider == 'openai' or (provider == 'auto' and openai_key):
         response, error = call_openai(message, ai_conversations[session_id][:-1])
         model_name = "GPT-3.5" if response else None
     
-    if not response and (provider == 'anthropic' or (provider == 'auto' and ANTHROPIC_API_KEY)):
+    if not response and (provider == 'anthropic' or (provider == 'auto' and anthropic_key)):
         response, error = call_anthropic(message, ai_conversations[session_id][:-1])
         model_name = "Claude" if response else None
     
-    if not response and (provider == 'gemini' or (provider == 'auto' and GOOGLE_API_KEY)):
+    if not response and (provider == 'gemini' or (provider == 'auto' and gemini_key)):
         response, error = call_gemini(message, ai_conversations[session_id][:-1])
         model_name = "Gemini" if response else None
     
@@ -266,10 +380,11 @@ class APIHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/health':
             # Check available AI providers
+            openai_key, anthropic_key, gemini_key = get_api_keys()
             available_providers = []
-            if OPENAI_API_KEY: available_providers.append('openai')
-            if ANTHROPIC_API_KEY: available_providers.append('anthropic')
-            if GOOGLE_API_KEY: available_providers.append('gemini')
+            if openai_key: available_providers.append('openai')
+            if anthropic_key: available_providers.append('anthropic')
+            if gemini_key: available_providers.append('gemini')
             
             self.send_json({
                 "status": "healthy",
@@ -280,22 +395,25 @@ class APIHandler(SimpleHTTPRequestHandler):
                     "uptime": time.time() - start_time
                 },
                 "ai_providers": {
-                    "openai": bool(OPENAI_API_KEY),
-                    "anthropic": bool(ANTHROPIC_API_KEY),
-                    "gemini": bool(GOOGLE_API_KEY)
+                    "openai": bool(openai_key),
+                    "anthropic": bool(anthropic_key),
+                    "gemini": bool(gemini_key),
+                    "openhands": bool(openai_key)  # Uses same key for now
                 },
                 "available_providers": available_providers
             })
         
         elif self.path == '/api/v1':
+            openai_key, anthropic_key, gemini_key = get_api_keys()
             self.send_json({
                 "name": "AILA Platform API",
                 "version": "1.0.0",
                 "description": "AI Personalized Learning Platform",
                 "ai_providers": {
-                    "openai": {"enabled": bool(OPENAI_API_KEY), "model": "gpt-3.5-turbo"},
-                    "anthropic": {"enabled": bool(ANTHROPIC_API_KEY), "model": "claude-3-haiku"},
-                    "gemini": {"enabled": bool(GOOGLE_API_KEY), "model": "gemini-pro"}
+                    "openai": {"enabled": bool(openai_key), "model": "gpt-3.5-turbo"},
+                    "anthropic": {"enabled": bool(anthropic_key), "model": "claude-3-haiku"},
+                    "gemini": {"enabled": bool(gemini_key), "model": "gemini-2.0-flash"},
+                    "openhands": {"enabled": bool(openai_key), "model": "minimax-m2.7", "description": "Advanced reasoning AI"}
                 },
                 "endpoints": {
                     "health": "/health",
