@@ -1,0 +1,93 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+*.env
+
+# Credentials and secrets
+*.pem
+*.key
+credentials.json
+service-account-key.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Database
+*.sql.dump
+*.backup
+
+# Docker
+.dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+
+# Build artifacts
+*.tgz
+*.tar.gz
+
+# MinIO data
+minio_data/
+
+# Elastic search
+elasticsearch_data/
+
+# PostgreSQL data
+postgres_data/
+
+# Redis data
+redis_data/
+
+# Secrets (never commit)
+secrets/
+private/
+keys/
+
+# Mobile builds
+*.apk
+*.ipa
+*.app
+*.dSYM
+
+# Crash reports
+crash-reports/
