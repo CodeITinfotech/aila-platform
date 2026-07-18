@@ -489,19 +489,11 @@ What would you like to learn today?</div></div>
                 const data = await res.json();
                 if (data.status === 'healthy') {
                     document.getElementById('statusDot').classList.add('healthy');
-                    
-                    // Check available AI providers
-                    const providers = data.available_providers || [];
-                    if (providers.length > 0) {
-                        const names = providers.map(p => p.toUpperCase()).join(', ');
-                        document.getElementById('statusText').textContent = `AI: ${names} 🟢`;
-                    } else {
-                        document.getElementById('statusText').textContent = 'AI Demo Mode 🟡';
-                    }
+                    document.getElementById('statusText').textContent = 'Online 🟢';
                     return true;
                 }
             } catch (e) {
-                document.getElementById('statusText').textContent = 'AI Offline 🔴';
+                document.getElementById('statusText').textContent = 'Offline 🔴';
             }
             return false;
         }
