@@ -53,16 +53,18 @@ class APIHandler(SimpleHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Access-Control-Max-Age', '86400')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
     
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Access-Control-Max-Age', '86400')
         self.end_headers()
     
     def do_GET(self):
@@ -171,39 +173,83 @@ class APIHandler(SimpleHTTPRequestHandler):
 
 
 class WebHandler(SimpleHTTPRequestHandler):
-    """Handler for static web files"""
+    """Handler for static web files with API proxy"""
     
     def log_message(self, format, *args):
         print(f"[Web] {args[0]}")
     
-    def do_GET(self):
-        parsed = urlparse(self.path)
+    def send_json_response(self, data, status=200):
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+    
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+    
+    def proxy_to_api(self, method='GET'):
+        """Proxy request to API server"""
+        import urllib.request
+        import urllib.error
         
-        if self.path == '/' or self.path == '/index.html':
-            self.serve_file('/workspace/project/apps/web/src/index.html')
+        api_path = f'http://localhost:{API_PORT}{self.path}'
+        headers = {}
+        
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length) if content_length > 0 else None
+        
+        if body:
+            headers['Content-Type'] = self.headers.get('Content-Type', 'application/json')
+        
+        try:
+            req = urllib.request.Request(api_path, data=body, headers=headers, method=method)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = response.read()
+                self.send_response(response.status)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(data)
+        except urllib.error.URLError as e:
+            self.send_json_response({'error': 'API unavailable', 'details': str(e)}, 503)
+        except Exception as e:
+            self.send_json_response({'error': 'Proxy error', 'details': str(e)}, 500)
+    
+    def do_GET(self):
+        if self.path.startswith('/api/') or self.path == '/health':
+            self.proxy_to_api('GET')
         elif self.path == '/api':
-            # Proxy to API
-            self.send_response(302)
-            self.send_header('Location', f'http://localhost:{API_PORT}/api/v1')
-            self.end_headers()
-        elif self.path.startswith('/api/'):
-            # Proxy to API
-            self.send_response(302)
-            self.send_header('Location', f'http://localhost:{API_PORT}{self.path}')
-            self.end_headers()
+            self.send_json_response({
+                'name': 'AILA API',
+                'version': '1.0.0',
+                'proxy': True
+            })
+        elif self.path == '/' or self.path == '/index.html':
+            self.serve_file('/workspace/project/apps/web/src/index.html')
         elif self.path == '/status':
             self.send_response(200)
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
             self.wfile.write(f"Web Server Running - Port {WEB_PORT}".encode())
         else:
-            # Try to serve static file
             file_path = '/workspace/project/apps/web/src' + self.path
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 self.serve_file(file_path)
             else:
-                # Fallback to index.html
                 self.serve_file('/workspace/project/apps/web/src/index.html')
+    
+    def do_POST(self):
+        if self.path.startswith('/api/'):
+            self.proxy_to_api('POST')
+        else:
+            self.send_json_response({'error': 'Not found'}, 404)
     
     def serve_file(self, path):
         with open(path, 'rb') as f:

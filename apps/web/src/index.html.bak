@@ -680,8 +680,7 @@
     </footer>
 
     <script>
-        // Use same-origin API (proxy handles requests)
-const API_URL = '';
+        const API_URL = window.location.port === '12000' ? 'http://localhost:12001' : 'http://localhost:3001';
         
         // Check API health
         async function checkHealth() {
