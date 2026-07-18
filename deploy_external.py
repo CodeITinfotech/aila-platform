@@ -2,17 +2,15 @@
 """
 External Deployment Server for AILA Platform
 Serves both static files and API on specified ports
-Includes Full AI Integration with OpenAI GPT
+Includes Multi-AI Integration: OpenAI, Claude, Gemini
 """
 
 import os
-import sys
 import json
 import time
 import random
-import re
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 from datetime import datetime
@@ -22,11 +20,15 @@ import threading
 WEB_PORT = 12000
 API_PORT = 12001
 
-# AI Configuration
-# Set OPENAI_API_KEY environment variable for real AI responses
+# AI Configuration - Set environment variables to enable
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-AI_MODEL = os.environ.get('AI_MODEL', 'gpt-3.5-turbo')
-AI_BASE_URL = 'https://api.openai.com/v1/chat/completions'
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
+
+# AI Provider URLs
+OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
+ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent'
 
 # AI Tutor System Prompt
 AI_SYSTEM_PROMPT = """You are AILA, an AI Learning Assistant. You are helpful, knowledgeable, and patient.
@@ -69,120 +71,172 @@ LEADERBOARD = [
 ai_conversations = {}
 
 
-def call_openai_api(messages, session_id=None):
-    """Call OpenAI API with conversation context"""
+def call_openai(message, history):
+    """Call OpenAI GPT-3.5 API"""
     if not OPENAI_API_KEY:
-        return None, "AI API key not configured"
+        return None, "OpenAI API key not configured"
     
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {OPENAI_API_KEY}'
-    }
+    messages = [{"role": "system", "content": AI_SYSTEM_PROMPT}]
+    for h in history:
+        if h.get('role') == 'user':
+            messages.append({"role": "user", "content": h['content']})
+        elif h.get('role') == 'assistant':
+            messages.append({"role": "assistant", "content": h['content']})
+    messages.append({"role": "user", "content": message})
     
     payload = {
-        'model': AI_MODEL,
-        'messages': messages,
-        'temperature': 0.7,
-        'max_tokens': 1000
+        "model": "gpt-3.5-turbo",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1000
     }
     
     try:
         req = Request(
-            AI_BASE_URL,
+            OPENAI_URL,
             data=json.dumps(payload).encode(),
-            headers=headers,
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {OPENAI_API_KEY}'
+            },
             method='POST'
         )
-        
         with urlopen(req, timeout=30) as response:
             result = json.loads(response.read().decode())
-            return result, None
-            
-    except URLError as e:
-        return None, f"Network error: {str(e)}"
-    except json.JSONDecodeError:
-        return None, "Invalid response from AI service"
+            return result['choices'][0]['message']['content'], None
     except Exception as e:
-        return None, f"AI error: {str(e)}"
+        return None, f"OpenAI error: {str(e)}"
 
 
-def get_ai_response(message, session_id='default'):
-    """Get AI response using OpenAI API"""
+def call_anthropic(message, history):
+    """Call Anthropic Claude API"""
+    if not ANTHROPIC_API_KEY:
+        return None, "Anthropic API key not configured"
+    
+    messages = []
+    for h in history:
+        if h.get('role') == 'user':
+            messages.append({"role": "user", "content": h['content']})
+        elif h.get('role') == 'assistant':
+            messages.append({"role": "assistant", "content": h['content']})
+    messages.append({"role": "user", "content": message})
+    
+    payload = {
+        "model": "claude-3-haiku-20240307",
+        "max_tokens": 1000,
+        "messages": messages,
+        "system": AI_SYSTEM_PROMPT
+    }
+    
+    try:
+        req = Request(
+            ANTHROPIC_URL,
+            data=json.dumps(payload).encode(),
+            headers={
+                'Content-Type': 'application/json',
+                'x-api-key': ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01'
+            },
+            method='POST'
+        )
+        with urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode())
+            return result['content'][0]['text'], None
+    except Exception as e:
+        return None, f"Anthropic error: {str(e)}"
+
+
+def call_gemini(message, history):
+    """Call Google Gemini API"""
+    if not GOOGLE_API_KEY:
+        return None, "Google API key not configured"
+    
+    contents = []
+    for h in history:
+        if h.get('role') == 'user':
+            contents.append({"role": "user", "parts": [{"text": h['content']}]})
+        elif h.get('role') == 'assistant':
+            contents.append({"role": "model", "parts": [{"text": h['content']}]})
+    contents.append({"role": "user", "parts": [{"text": message}]})
+    
+    payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 1000
+        }
+    }
+    
+    url = f"{GEMINI_URL}?key={GOOGLE_API_KEY}"
+    
+    try:
+        req = Request(
+            url,
+            data=json.dumps(payload).encode(),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+        with urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode())
+            return result['candidates'][0]['content']['parts'][0]['text'], None
+    except Exception as e:
+        return None, f"Gemini error: {str(e)}"
+
+
+def get_ai_response(message, provider='auto', session_id='default'):
+    """Get AI response using available providers"""
     global ai_conversations
     
     # Initialize conversation if needed
     if session_id not in ai_conversations:
-        ai_conversations[session_id] = [
-            {"role": "system", "content": AI_SYSTEM_PROMPT}
-        ]
+        ai_conversations[session_id] = []
     
     # Add user message to history
     ai_conversations[session_id].append({
-        "role": "user", 
+        "role": "user",
         "content": message
     })
     
-    # Limit conversation history to last 10 messages
-    if len(ai_conversations[session_id]) > 11:  # +1 for system
-        ai_conversations[session_id] = [
-            ai_conversations[session_id][0],  # Keep system prompt
-            *ai_conversations[session_id][-10:]
-        ]
+    response = None
+    error = None
+    model_name = "None"
     
-    # Call OpenAI API
-    result, error = call_openai_api(ai_conversations[session_id], session_id)
+    # Try providers in order of availability
+    if provider == 'openai' or (provider == 'auto' and OPENAI_API_KEY):
+        response, error = call_openai(message, ai_conversations[session_id][:-1])
+        model_name = "GPT-3.5" if response else None
     
-    if error:
-        return None, error, 0
+    if not response and (provider == 'anthropic' or (provider == 'auto' and ANTHROPIC_API_KEY)):
+        response, error = call_anthropic(message, ai_conversations[session_id][:-1])
+        model_name = "Claude" if response else None
     
-    # Extract response
-    response_text = result['choices'][0]['message']['content']
-    tokens_used = result.get('usage', {}).get('total_tokens', 0)
+    if not response and (provider == 'gemini' or (provider == 'auto' and GOOGLE_API_KEY)):
+        response, error = call_gemini(message, ai_conversations[session_id][:-1])
+        model_name = "Gemini" if response else None
     
-    # Add AI response to history
-    ai_conversations[session_id].append({
-        "role": "assistant",
-        "content": response_text
-    })
+    if response:
+        ai_conversations[session_id].append({
+            "role": "assistant",
+            "content": response
+        })
+        # Limit history
+        if len(ai_conversations[session_id]) > 20:
+            ai_conversations[session_id] = ai_conversations[session_id][-20:]
+        return response, model_name, None
     
-    return response_text, None, tokens_used
+    return None, None, error or "No AI provider configured"
 
 
 def generate_suggestions(message):
-    """Generate follow-up question suggestions based on context"""
-    suggestions = [
-        "Can you give me an example?",
-        "How does this apply in practice?",
-        "What are common mistakes to avoid?",
-        "Can you explain that differently?"
-    ]
-    
-    # Context-aware suggestions
+    """Generate follow-up suggestions"""
     msg_lower = message.lower()
-    
     if 'python' in msg_lower or 'code' in msg_lower:
-        suggestions = [
-            "Show me a code example",
-            "How do I debug this?",
-            "What's the best practice?",
-            "Explain it with Python"
-        ]
+        return ["Show me a code example", "How do I debug this?", "What's the best practice?"]
     elif 'math' in msg_lower or 'equation' in msg_lower:
-        suggestions = [
-            "Show me the steps",
-            "Can you prove this?",
-            "Give me a similar problem",
-            "Why does this work?"
-        ]
+        return ["Show me the steps", "Can you prove this?", "Give me a similar problem"]
     elif 'english' in msg_lower or 'grammar' in msg_lower:
-        suggestions = [
-            "Give me practice sentences",
-            "What's the exception to this rule?",
-            "Help with pronunciation",
-            "Show more examples"
-        ]
-    
-    return suggestions[:3]
+        return ["Give me practice sentences", "Help with pronunciation", "Show more examples"]
+    return ["Can you give me an example?", "How does this apply in practice?", "What are common mistakes to avoid?"]
 
 
 class APIHandler(SimpleHTTPRequestHandler):
@@ -210,9 +264,13 @@ class APIHandler(SimpleHTTPRequestHandler):
         self.end_headers()
     
     def do_GET(self):
-        parsed = urlparse(self.path)
-        
         if self.path == '/health':
+            # Check available AI providers
+            available_providers = []
+            if OPENAI_API_KEY: available_providers.append('openai')
+            if ANTHROPIC_API_KEY: available_providers.append('anthropic')
+            if GOOGLE_API_KEY: available_providers.append('gemini')
+            
             self.send_json({
                 "status": "healthy",
                 "timestamp": datetime.now().isoformat(),
@@ -220,7 +278,13 @@ class APIHandler(SimpleHTTPRequestHandler):
                     "database": "connected",
                     "redis": "connected",
                     "uptime": time.time() - start_time
-                }
+                },
+                "ai_providers": {
+                    "openai": bool(OPENAI_API_KEY),
+                    "anthropic": bool(ANTHROPIC_API_KEY),
+                    "gemini": bool(GOOGLE_API_KEY)
+                },
+                "available_providers": available_providers
             })
         
         elif self.path == '/api/v1':
@@ -228,38 +292,30 @@ class APIHandler(SimpleHTTPRequestHandler):
                 "name": "AILA Platform API",
                 "version": "1.0.0",
                 "description": "AI Personalized Learning Platform",
+                "ai_providers": {
+                    "openai": {"enabled": bool(OPENAI_API_KEY), "model": "gpt-3.5-turbo"},
+                    "anthropic": {"enabled": bool(ANTHROPIC_API_KEY), "model": "claude-3-haiku"},
+                    "gemini": {"enabled": bool(GOOGLE_API_KEY), "model": "gemini-pro"}
+                },
                 "endpoints": {
                     "health": "/health",
                     "auth": "/api/v1/auth",
-                    "users": "/api/v1/users",
                     "courses": "/api/v1/courses",
-                    "lessons": "/api/v1/lessons",
-                    "quizzes": "/api/v1/quizzes",
                     "ai": "/api/v1/ai",
-                    "achievements": "/api/v1/achievements",
                     "leaderboard": "/api/v1/leaderboard"
                 }
             })
         
         elif self.path == '/api/v1/courses':
-            self.send_json({
-                "success": True,
-                "data": COURSES,
-                "meta": {"total": len(COURSES)}
-            })
+            self.send_json({"success": True, "data": COURSES, "meta": {"total": len(COURSES)}})
         
         elif self.path == '/api/v1/leaderboard':
-            self.send_json({
-                "success": True,
-                "data": LEADERBOARD,
-                "meta": {"total_participants": 15420}
-            })
+            self.send_json({"success": True, "data": LEADERBOARD, "meta": {"total_participants": 15420}})
         
         else:
             self.send_json({"error": "Not found", "code": "NOT_FOUND"}, 404)
     
     def do_POST(self):
-        parsed = urlparse(self.path)
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode() if content_length > 0 else '{}'
         
@@ -272,23 +328,17 @@ class APIHandler(SimpleHTTPRequestHandler):
             self.send_json({
                 "success": True,
                 "data": {
-                    "user": {
-                        "id": f"user_{random.randint(1000,9999)}",
-                        "email": data.get("email", "user@example.com"),
-                        "name": data.get("name", "New User"),
-                        "status": "active"
-                    },
-                    "message": "Registration successful"
-                }
+                    "user": {"id": f"user_{random.randint(1000,9999)}", "email": data.get("email", ""), "name": data.get("name", "New User"), "status": "active"}
+                },
+                "message": "Registration successful"
             })
         
         elif self.path == '/api/v1/auth/login':
             self.send_json({
                 "success": True,
                 "data": {
-                    "user": {"id": "user_123", "email": data.get("email", "user@example.com"), "name": "Demo User"},
+                    "user": {"id": "user_123", "email": data.get("email", ""), "name": "Demo User"},
                     "access_token": "demo_token_" + str(int(time.time())),
-                    "refresh_token": "demo_refresh_" + str(int(time.time())),
                     "expires_in": 900
                 }
             })
@@ -296,40 +346,30 @@ class APIHandler(SimpleHTTPRequestHandler):
         elif self.path == '/api/v1/ai/chat':
             message = data.get("message", "")
             session_id = data.get("session_id", "default")
+            provider = data.get("provider", "auto")
             
-            # Check if OpenAI API key is configured
-            if OPENAI_API_KEY:
-                # Use real OpenAI API
-                response_text, error, tokens_used = get_ai_response(message, session_id)
-                
-                if error:
-                    self.send_json({
-                        "success": False,
-                        "error": error,
-                        "message": "AI service error"
-                    }, 503)
-                    return
-                
+            response_text, model_name, error = get_ai_response(message, provider, session_id)
+            
+            if response_text:
                 self.send_json({
                     "success": True,
                     "data": {
                         "message_id": f"msg_{int(time.time())}",
                         "response": response_text,
+                        "model": model_name,
                         "suggestions": generate_suggestions(message),
-                        "tokens_used": tokens_used,
-                        "model": AI_MODEL
+                        "provider_used": model_name.lower() if model_name else "demo"
                     }
                 })
             else:
-                # Fallback to demo mode
                 self.send_json({
                     "success": True,
                     "data": {
                         "message_id": f"msg_{int(time.time())}",
-                        "response": f"⚠️ AI is running in demo mode.\n\nTo enable full AI, set the OPENAI_API_KEY environment variable.\n\nYour question was: {message}\n\n(Demo response - configure API key for real AI responses)",
+                        "response": f"⚠️ AI service requires API keys.\n\nPlease configure at least one AI provider:\n• OpenAI GPT-3.5 - set OPENAI_API_KEY\n• Anthropic Claude - set ANTHROPIC_API_KEY  \n• Google Gemini - set GOOGLE_API_KEY\n\nYour question was: {message}\n\n(Demo mode - AI responses disabled)",
+                        "model": "demo",
                         "suggestions": generate_suggestions(message),
-                        "tokens_used": 0,
-                        "demo_mode": True
+                        "provider_used": "demo"
                     }
                 })
         
