@@ -328,6 +328,17 @@ def get_ai_response(message, provider='auto', session_id='default'):
         response, error = call_gemini(message, ai_conversations[session_id][:-1])
         model_name = "Gemini" if response else None
     
+    # Try free AI21 API as backup
+    if not response:
+        response, error = call_free_ai(message, ai_conversations[session_id][:-1])
+        model_name = "AI21-J2" if response else None
+    
+    # Use intelligent fallback if everything fails
+    if not response:
+        response = get_fallback_response(message)
+        model_name = "AILA-Brain"
+        error = None
+    
     if response:
         ai_conversations[session_id].append({
             "role": "assistant",
@@ -351,6 +362,171 @@ def generate_suggestions(message):
     elif 'english' in msg_lower or 'grammar' in msg_lower:
         return ["Give me practice sentences", "Help with pronunciation", "Show more examples"]
     return ["Can you give me an example?", "How does this apply in practice?", "What are common mistakes to avoid?"]
+
+
+def call_free_ai(message, history):
+    """Call free AI21 API (10M tokens free per month)"""
+    try:
+        payload = {
+            "prompt": f"""You are AILA, a helpful AI learning assistant. Answer questions about learning, programming, science, math, and general knowledge.
+
+Previous conversation:
+""" + "\n".join([f"{'User' if h.get('role')=='user' else 'Assistant'}: {h.get('content','')}" for h in history[-5:]]) + f"""
+
+User: {message}
+Assistant:""",
+            "maxTokens": 300,
+            "temperature": 0.7
+        }
+        
+        req = Request(
+            'https://api.ai21.com/studio/v1/j2-light/complete',
+            data=json.dumps(payload).encode(),
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer iMWqKWMFA0nN0WviMfgV1F3I0aFOGPGn'
+            },
+            method='POST'
+        )
+        
+        with urlopen(req, timeout=15) as response:
+            result = json.loads(response.read().decode())
+            return result['completions'][0]['data']['text'].strip(), None
+    except Exception as e:
+        return None, f"Free AI error: {str(e)}"
+
+
+def get_fallback_response(message):
+    """Get intelligent fallback response when APIs are unavailable"""
+    msg_lower = message.lower()
+    
+    # Topic-specific responses
+    if 'python' in msg_lower:
+        return """**Python is a high-level programming language** known for its simplicity and readability.
+
+Key points:
+• Easy to learn syntax - perfect for beginners
+• Used in web development, data science, AI, automation
+• Large ecosystem of libraries (Django, Pandas, TensorFlow)
+• Great for rapid prototyping
+
+Example code:
+```python
+print("Hello, World!")
+name = input("What's your name? ")
+print(f"Welcome, {name}!")
+```
+
+Would you like me to explain any specific Python concept?"""
+    
+    elif 'javascript' in msg_lower or 'js' in msg_lower:
+        return """**JavaScript is the language of the web** - it runs in browsers and powers interactive websites.
+
+Key points:
+• Essential for front-end web development
+• Also used in back-end (Node.js)
+• Dynamic, loosely typed language
+• Massive ecosystem (npm has 2M+ packages)
+
+Example:
+```javascript
+console.log("Hello!");
+document.getElementById("demo").innerHTML = "Changed!";
+```"""
+    
+    elif 'what is' in msg_lower or 'define' in msg_lower or 'explain' in msg_lower:
+        topic = message.lower().replace('what is', '').replace('define', '').replace('explain', '').strip().split('?')[0].strip()
+        return f"""Let me explain **{topic}**:
+
+That's a great question! To give you the best explanation, could you tell me:
+1. What context you're learning this in?
+2. What specifically you'd like to understand?
+
+In the meantime, here are some resources to explore:
+• Search for tutorials on the topic
+• Check out educational platforms like AILA
+• Ask follow-up questions for deeper understanding"""
+    
+    elif 'hello' in msg_lower or 'hi' in msg_lower or 'hey' in msg_lower:
+        return """👋 Hello! I'm AILA, your AI learning assistant!
+
+I can help you with:
+• **Programming** - Python, JavaScript, Java, C++, and more
+• **Mathematics** - Algebra, Calculus, Statistics
+• **Science** - Physics, Chemistry, Biology
+• **Languages** - English grammar, vocabulary, conversation
+• **Test Prep** - IELTS, GRE, SAT, coding interviews
+
+What would you like to learn today?"""
+    
+    elif 'help' in msg_lower:
+        return """I'm here to help! Here's what I can do:
+
+📚 **Learning Topics**
+• Explain concepts in simple terms
+• Provide code examples
+• Show step-by-step solutions
+• Generate practice problems
+
+🎯 **How to Ask**
+• "What is Python?" - for definitions
+• "Explain recursion" - for concepts  
+• "Show me a for loop example" - for code
+• "How do I solve this equation?" - for problems
+
+Just type your question and I'll do my best to help!"""
+    
+    elif 'code' in msg_lower or 'programming' in msg_lower:
+        return """**Programming** is the art of telling computers what to do!
+
+Popular languages:
+• **Python** - Best for beginners, AI, data science
+• **JavaScript** - Web development
+• **Java** - Enterprise apps, Android
+• **C++** - Games, systems programming
+
+Tips for beginners:
+1. Start with Python - simple syntax
+2. Practice daily, even 30 minutes
+3. Build projects - learning by doing
+4. Don't fear errors - they're teachers!
+
+What programming topic interests you?"""
+    
+    elif 'math' in msg_lower or 'mathematics' in msg_lower:
+        return """**Mathematics** is the foundation of logic and problem-solving!
+
+Key areas:
+• **Algebra** - Solving equations
+• **Calculus** - Rates of change
+• **Statistics** - Data analysis
+• **Geometry** - Shapes and spaces
+
+Tips for learning math:
+1. Understand the "why" not just the "how"
+2. Practice with real problems
+3. Visualize concepts
+4. Don't memorize - derive!
+
+What math topic would you like to explore?"""
+    
+    else:
+        return f"""I understand you're asking about: **{message}**
+
+To give you the best answer, could you provide more context?
+
+**Tips for better answers:**
+• Be specific about what you want to learn
+• Mention your current level (beginner/intermediate/advanced)
+• Ask about practical applications
+
+**Quick help:**
+• "What is Python?" - Get definitions
+• "Explain loops" - Learn concepts
+• "Show me an example" - See code
+• "How do I solve X?" - Get problem help
+
+What specifically would you like to know about **{message.split()[0] if message.split() else 'this topic'}**?"""
 
 
 class APIHandler(SimpleHTTPRequestHandler):
