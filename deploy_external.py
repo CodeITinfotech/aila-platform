@@ -2,6 +2,7 @@
 """
 External Deployment Server for AILA Platform
 Serves both static files and API on specified ports
+Includes Full AI Integration with OpenAI GPT
 """
 
 import os
@@ -9,14 +10,43 @@ import sys
 import json
 import time
 import random
+import re
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+from urllib.request import Request, urlopen
+from urllib.error import URLError
 from datetime import datetime
 import threading
 
 # Configuration
 WEB_PORT = 12000
 API_PORT = 12001
+
+# AI Configuration
+# Set OPENAI_API_KEY environment variable for real AI responses
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+AI_MODEL = os.environ.get('AI_MODEL', 'gpt-3.5-turbo')
+AI_BASE_URL = 'https://api.openai.com/v1/chat/completions'
+
+# AI Tutor System Prompt
+AI_SYSTEM_PROMPT = """You are AILA, an AI Learning Assistant. You are helpful, knowledgeable, and patient.
+Your role is to help students learn various subjects including:
+- Programming and Computer Science
+- Mathematics and Statistics
+- Science (Physics, Chemistry, Biology)
+- Languages and Literature
+- Test Preparation (IELTS, GRE, etc.)
+
+Guidelines:
+1. Be encouraging and supportive
+2. Explain concepts clearly with examples
+3. Break down complex topics into simpler parts
+4. Use code examples when relevant
+5. Ask follow-up questions to ensure understanding
+6. Adapt your explanation style to the user's level
+7. If you don't know something, admit it honestly
+
+Always be friendly, professional, and focused on helping the user learn."""
 
 # Sample data
 COURSES = [
@@ -35,13 +65,125 @@ LEADERBOARD = [
     {"rank": 5, "name": "David Kim", "xp_total": 19500, "level": 52, "streak": 22},
 ]
 
-AI_RESPONSES = [
-    "I'd be happy to help you with that! Let me explain the concept step by step.",
-    "Great question! This topic is fundamental to understanding the subject.",
-    "Let me break this down for you in a simple way.",
-    "That's a common point of confusion. Here's how it works:",
-    "Excellent! You're asking the right questions. Let me clarify."
-]
+# Conversation history per session (in-memory)
+ai_conversations = {}
+
+
+def call_openai_api(messages, session_id=None):
+    """Call OpenAI API with conversation context"""
+    if not OPENAI_API_KEY:
+        return None, "AI API key not configured"
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {OPENAI_API_KEY}'
+    }
+    
+    payload = {
+        'model': AI_MODEL,
+        'messages': messages,
+        'temperature': 0.7,
+        'max_tokens': 1000
+    }
+    
+    try:
+        req = Request(
+            AI_BASE_URL,
+            data=json.dumps(payload).encode(),
+            headers=headers,
+            method='POST'
+        )
+        
+        with urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode())
+            return result, None
+            
+    except URLError as e:
+        return None, f"Network error: {str(e)}"
+    except json.JSONDecodeError:
+        return None, "Invalid response from AI service"
+    except Exception as e:
+        return None, f"AI error: {str(e)}"
+
+
+def get_ai_response(message, session_id='default'):
+    """Get AI response using OpenAI API"""
+    global ai_conversations
+    
+    # Initialize conversation if needed
+    if session_id not in ai_conversations:
+        ai_conversations[session_id] = [
+            {"role": "system", "content": AI_SYSTEM_PROMPT}
+        ]
+    
+    # Add user message to history
+    ai_conversations[session_id].append({
+        "role": "user", 
+        "content": message
+    })
+    
+    # Limit conversation history to last 10 messages
+    if len(ai_conversations[session_id]) > 11:  # +1 for system
+        ai_conversations[session_id] = [
+            ai_conversations[session_id][0],  # Keep system prompt
+            *ai_conversations[session_id][-10:]
+        ]
+    
+    # Call OpenAI API
+    result, error = call_openai_api(ai_conversations[session_id], session_id)
+    
+    if error:
+        return None, error, 0
+    
+    # Extract response
+    response_text = result['choices'][0]['message']['content']
+    tokens_used = result.get('usage', {}).get('total_tokens', 0)
+    
+    # Add AI response to history
+    ai_conversations[session_id].append({
+        "role": "assistant",
+        "content": response_text
+    })
+    
+    return response_text, None, tokens_used
+
+
+def generate_suggestions(message):
+    """Generate follow-up question suggestions based on context"""
+    suggestions = [
+        "Can you give me an example?",
+        "How does this apply in practice?",
+        "What are common mistakes to avoid?",
+        "Can you explain that differently?"
+    ]
+    
+    # Context-aware suggestions
+    msg_lower = message.lower()
+    
+    if 'python' in msg_lower or 'code' in msg_lower:
+        suggestions = [
+            "Show me a code example",
+            "How do I debug this?",
+            "What's the best practice?",
+            "Explain it with Python"
+        ]
+    elif 'math' in msg_lower or 'equation' in msg_lower:
+        suggestions = [
+            "Show me the steps",
+            "Can you prove this?",
+            "Give me a similar problem",
+            "Why does this work?"
+        ]
+    elif 'english' in msg_lower or 'grammar' in msg_lower:
+        suggestions = [
+            "Give me practice sentences",
+            "What's the exception to this rule?",
+            "Help with pronunciation",
+            "Show more examples"
+        ]
+    
+    return suggestions[:3]
+
 
 class APIHandler(SimpleHTTPRequestHandler):
     """Handler for API requests"""
@@ -153,20 +295,43 @@ class APIHandler(SimpleHTTPRequestHandler):
         
         elif self.path == '/api/v1/ai/chat':
             message = data.get("message", "")
-            response = random.choice(AI_RESPONSES)
-            self.send_json({
-                "success": True,
-                "data": {
-                    "message_id": f"msg_{int(time.time())}",
-                    "response": f"{response}\n\nYour question was: {message[:50]}...\n\n(This is a demo response. Full AI integration coming soon!)",
-                    "suggestions": [
-                        "Can you give me an example?",
-                        "How does this apply in practice?",
-                        "What are common mistakes to avoid?"
-                    ],
-                    "tokens_used": random.randint(50, 200)
-                }
-            })
+            session_id = data.get("session_id", "default")
+            
+            # Check if OpenAI API key is configured
+            if OPENAI_API_KEY:
+                # Use real OpenAI API
+                response_text, error, tokens_used = get_ai_response(message, session_id)
+                
+                if error:
+                    self.send_json({
+                        "success": False,
+                        "error": error,
+                        "message": "AI service error"
+                    }, 503)
+                    return
+                
+                self.send_json({
+                    "success": True,
+                    "data": {
+                        "message_id": f"msg_{int(time.time())}",
+                        "response": response_text,
+                        "suggestions": generate_suggestions(message),
+                        "tokens_used": tokens_used,
+                        "model": AI_MODEL
+                    }
+                })
+            else:
+                # Fallback to demo mode
+                self.send_json({
+                    "success": True,
+                    "data": {
+                        "message_id": f"msg_{int(time.time())}",
+                        "response": f"⚠️ AI is running in demo mode.\n\nTo enable full AI, set the OPENAI_API_KEY environment variable.\n\nYour question was: {message}\n\n(Demo response - configure API key for real AI responses)",
+                        "suggestions": generate_suggestions(message),
+                        "tokens_used": 0,
+                        "demo_mode": True
+                    }
+                })
         
         else:
             self.send_json({"error": "Not found", "code": "NOT_FOUND"}, 404)
