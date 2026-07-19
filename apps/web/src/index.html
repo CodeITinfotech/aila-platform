@@ -35,16 +35,20 @@
         .status-dot.healthy { background: var(--secondary); }
 
         /* Hero */
-        .hero { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 80px 0; text-align: center; }
-        .hero h1 { font-size: 48px; margin-bottom: 16px; }
-        .hero p { font-size: 20px; opacity: 0.9; margin-bottom: 32px; }
-        .btn { display: inline-block; padding: 14px 28px; border-radius: 8px; font-weight: 600; text-decoration: none; transition: all 0.2s; cursor: pointer; border: none; font-size: 16px; }
+        .hero { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; padding: 80px 0; text-align: center; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 30% 70%, rgba(255,255,255,0.15) 0%, transparent 50%), radial-gradient(circle at 70% 30%, rgba(255,255,255,0.1) 0%, transparent 50%); pointer-events: none; }
+        .hero h1 { font-size: 48px; margin-bottom: 16px; position: relative; z-index: 1; }
+        .hero p { font-size: 20px; opacity: 0.9; margin-bottom: 32px; position: relative; z-index: 1; }
+        .hero-buttons { position: relative; z-index: 1; }
+        .btn { display: inline-block; padding: 14px 28px; border-radius: 8px; font-weight: 600; text-decoration: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; border: none; font-size: 16px; position: relative; overflow: hidden; }
+        .btn::after { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.2); border-radius: 50%; transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
+        .btn:active::after { width: 300px; height: 300px; }
         .btn-primary { background: var(--secondary); color: white; }
-        .btn-primary:hover { background: #059669; transform: translateY(-2px); }
+        .btn-primary:hover { background: #059669; transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3); }
         .btn-secondary { background: rgba(255,255,255,0.2); color: white; border: 2px solid white; }
-        .btn-secondary:hover { background: rgba(255,255,255,0.3); }
+        .btn-secondary:hover { background: rgba(255,255,255,0.4); transform: translateY(-3px) scale(1.02); }
         .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
-        .btn-outline:hover { background: var(--primary); color: white; }
+        .btn-outline:hover { background: var(--primary); color: white; transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); }
         .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 
         /* Stats */
@@ -61,16 +65,18 @@
 
         /* Features Grid */
         .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
-        .feature-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px; transition: all 0.2s; }
-        .feature-card:hover { border-color: var(--primary); transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
-        .feature-icon { width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px; }
-        .feature-card h3 { font-size: 20px; margin-bottom: 8px; }
+        .feature-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 32px; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .feature-card:hover { border-color: var(--primary); transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 40px rgba(99, 102, 241, 0.15); }
+        .feature-icon { width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px; transition: transform 0.3s; }
+        .feature-card:hover .feature-icon { transform: scale(1.1) rotate(5deg); }
+        .feature-card h3 { font-size: 20px; margin-bottom: 8px; transition: color 0.3s; }
+        .feature-card:hover h3 { color: var(--primary); }
         .feature-card p { color: var(--text-secondary); }
 
         /* Course Cards */
         .courses-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
-        .course-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.2s; cursor: pointer; }
-        .course-card:hover { border-color: var(--primary); box-shadow: 0 8px 16px rgba(0,0,0,0.1); transform: translateY(-4px); }
+        .course-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; }
+        .course-card:hover { border-color: var(--primary); box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2); transform: translateY(-8px) scale(1.02); }
         .course-image { height: 160px; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 48px; }
         .course-content { padding: 24px; }
         .course-badge { display: inline-block; padding: 4px 12px; background: var(--surface); border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--primary); margin-bottom: 12px; }
@@ -164,6 +170,120 @@
         .admin-stat { background: var(--surface); padding: 16px; border-radius: 8px; }
         .admin-stat h4 { font-size: 24px; color: var(--primary); margin-bottom: 4px; }
         .admin-stat span { font-size: 12px; color: var(--text-secondary); }
+        .course-tab { padding: 12px 24px; cursor: pointer; color: var(--text-secondary); border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .course-tab:hover { color: var(--text); }
+        .course-tab.active { color: var(--primary); border-color: var(--primary); }
+        .course-tab-content { display: none; padding: 20px 0; }
+        .course-tab-content.active { display: block; }
+        .admin-actions { display: flex; gap: 8px; margin-top: 12px; }
+        .admin-actions button { flex: 1; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; border: none; transition: all 0.2s; }
+        .admin-actions .btn-edit { background: var(--primary); color: white; }
+        .admin-actions .btn-edit:hover { background: var(--primary-dark); }
+        .admin-actions .btn-delete { background: var(--error); color: white; }
+        .admin-actions .btn-delete:hover { opacity: 0.8; }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Animated Classes */
+        .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
+        .animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+        .animate-slide-in { animation: slideIn 0.5s ease-out forwards; }
+        .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-bounce { animation: bounce 1s ease-in-out infinite; }
+        
+        /* Stagger animations */
+        .stagger-1 { animation-delay: 0.1s; opacity: 0; }
+        .stagger-2 { animation-delay: 0.2s; opacity: 0; }
+        .stagger-3 { animation-delay: 0.3s; opacity: 0; }
+        .stagger-4 { animation-delay: 0.4s; opacity: 0; }
+        .stagger-5 { animation-delay: 0.5s; opacity: 0; }
+        
+        /* Hover Effects */
+        .hover-lift { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .hover-lift:hover { transform: translateY(-8px); box-shadow: 0 12px 40px rgba(99, 102, 241, 0.2); }
+        
+        .hover-glow { transition: all 0.3s ease; }
+        .hover-glow:hover { box-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
+        
+        .hover-scale { transition: transform 0.2s ease; }
+        .hover-scale:hover { transform: scale(1.02); }
+        
+        /* Card Effects */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Gradient Text */
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Shimmer Effect */
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        
+        /* Ripple Effect */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        .ripple::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        .ripple:active::after {
+            width: 300px;
+            height: 300px;
+        }
 
         /* Back Button */
         .back-btn { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); cursor: pointer; margin-bottom: 24px; font-size: 14px; }
@@ -176,9 +296,10 @@
 
         /* Pricing Cards */
         .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto; }
-        .pricing-card { background: var(--bg); border: 2px solid var(--border); border-radius: 12px; padding: 32px; text-align: center; transition: all 0.2s; }
-        .pricing-card:hover { border-color: var(--primary); transform: translateY(-4px); }
-        .pricing-card.popular { border-color: var(--primary); position: relative; }
+        .pricing-card { background: var(--bg); border: 2px solid var(--border); border-radius: 12px; padding: 32px; text-align: center; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .pricing-card:hover { border-color: var(--primary); transform: translateY(-10px) scale(1.02); box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2); }
+        .pricing-card.popular { border-color: var(--primary); position: relative; background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.05)); }
+        .pricing-card.popular:hover { transform: translateY(-12px) scale(1.05); }
         .pricing-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .pricing-card h3 { font-size: 24px; margin-bottom: 8px; }
         .pricing-card .price { font-size: 32px; font-weight: 700; color: var(--primary); margin-bottom: 24px; }
@@ -222,12 +343,13 @@
     <!-- Home Page -->
     <div id="page-home" class="page active">
         <section class="hero">
+            <div class="hero-particles"></div>
             <div class="container">
-                <h1>Learn Smarter with AI</h1>
-                <p>Personalized learning powered by artificial intelligence. Get instant help, adaptive quizzes, and customized study plans.</p>
-                <div class="hero-buttons">
-                    <button class="btn btn-primary" onclick="navigateTo('courses')">Get Started Free</button>
-                    <button class="btn btn-secondary" onclick="navigateTo('ai-tutor')">Try AI Tutor</button>
+                <h1 class="animate-fade-in-up">Learn Smarter with <span class="gradient-text">AI</span></h1>
+                <p class="animate-fade-in-up stagger-1">Personalized learning powered by artificial intelligence. Get instant help, adaptive quizzes, and customized study plans.</p>
+                <div class="hero-buttons animate-fade-in-up stagger-2">
+                    <button class="btn btn-primary btn-lg ripple hover-lift" onclick="navigateTo('courses')">Get Started Free</button>
+                    <button class="btn btn-secondary btn-lg ripple hover-glow" onclick="navigateTo('ai-tutor')">Try AI Tutor</button>
                 </div>
             </div>
         </section>
@@ -235,48 +357,48 @@
         <section class="stats">
             <div class="container">
                 <div class="stats-grid">
-                    <div class="stat-item"><h3>50K+</h3><p>Active Students</p></div>
-                    <div class="stat-item"><h3>500+</h3><p>Courses</p></div>
-                    <div class="stat-item"><h3>95%</h3><p>Satisfaction Rate</p></div>
-                    <div class="stat-item"><h3>24/7</h3><p>AI Tutor Available</p></div>
+                    <div class="stat-item animate-fade-in-up stagger-1 hover-lift"><h3>50K+</h3><p>Active Students</p></div>
+                    <div class="stat-item animate-fade-in-up stagger-2 hover-lift"><h3>500+</h3><p>Courses</p></div>
+                    <div class="stat-item animate-fade-in-up stagger-3 hover-lift"><h3>95%</h3><p>Satisfaction Rate</p></div>
+                    <div class="stat-item animate-fade-in-up stagger-4 hover-lift"><h3>24/7</h3><p>AI Tutor Available</p></div>
                 </div>
             </div>
         </section>
 
         <section class="features">
             <div class="container">
-                <div class="section-title">
+                <div class="section-title animate-fade-in">
                     <h2>Why Choose AILA?</h2>
                     <p>Everything you need for effective learning</p>
                 </div>
                 <div class="features-grid">
-                    <div class="feature-card">
-                        <div class="feature-icon">🤖</div>
+                    <div class="feature-card hover-lift animate-fade-in-up stagger-1">
+                        <div class="feature-icon animate-float">🤖</div>
                         <h3>AI-Powered Tutor</h3>
                         <p>Get instant help from our AI tutor available 24/7.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📚</div>
+                    <div class="feature-card hover-lift animate-fade-in-up stagger-2">
+                        <div class="feature-icon animate-float" style="animation-delay: 0.5s;">📚</div>
                         <h3>500+ Courses</h3>
                         <p>Access courses across programming, science, languages, and more.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🎯</div>
+                    <div class="feature-card hover-lift animate-fade-in-up stagger-3">
+                        <div class="feature-icon animate-float" style="animation-delay: 1s;">🎯</div>
                         <h3>Adaptive Learning</h3>
                         <p>AI adapts to your learning style and pace.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🏆</div>
+                    <div class="feature-card hover-lift animate-fade-in-up stagger-4">
+                        <div class="feature-icon animate-float" style="animation-delay: 1.5s;">🏆</div>
                         <h3>Gamification</h3>
                         <p>Earn XP, badges, and climb leaderboards.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📊</div>
+                    <div class="feature-card hover-lift animate-fade-in-up stagger-5">
+                        <div class="feature-icon animate-float" style="animation-delay: 2s;">📊</div>
                         <h3>Progress Tracking</h3>
                         <p>Track your learning journey with detailed analytics.</p>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📱</div>
+                    <div class="feature-card hover-lift animate-fade-in-up" style="animation-delay: 0.6s;">
+                        <div class="feature-icon animate-float" style="animation-delay: 2.5s;">📱</div>
                         <h3>Anywhere, Anytime</h3>
                         <p>Learn on web, iOS, or Android.</p>
                     </div>
@@ -516,19 +638,19 @@
     </div>
     
     <!-- Add/Edit Course Modal -->
-    <div id="courseModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-        <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
-                <h2 id="modalTitle">Add New Course</h2>
-                <span onclick="closeCourseModal()" style="cursor: pointer; font-size: 24px;">×</span>
+    <div id="courseModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: var(--bg); border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 id="modalTitle" style="margin: 0;">Add New Course</h2>
+                <button onclick="closeCourseModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: var(--text-secondary);">×</button>
             </div>
             <form onsubmit="saveCourse(event)">
                 <input type="hidden" id="courseId">
-                <div class="form-group"><label>Course Title</label><input type="text" id="courseTitle" required placeholder="e.g., Python Fundamentals" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></div>
-                <div class="form-group"><label>Description</label><textarea id="courseDesc" rows="3" placeholder="Course description..." style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></textarea></div>
-                <div class="form-row">
-                    <div class="form-group"><label>Price ($)</label><input type="number" id="coursePrice" step="0.01" value="0" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></div>
-                    <div class="form-group"><label>Difficulty</label><select id="courseDifficulty" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+                <div class="form-group"><label style="display: block; margin-bottom: 8px; font-weight: 500;">Course Title</label><input type="text" id="courseTitle" required placeholder="e.g., Python Fundamentals" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box;"></div>
+                <div class="form-group"><label style="display: block; margin-bottom: 8px; font-weight: 500;">Description</label><textarea id="courseDesc" rows="3" placeholder="Course description..." style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box;"></textarea></div>
+                <div style="display: flex; gap: 16px;">
+                    <div class="form-group" style="flex: 1;"><label style="display: block; margin-bottom: 8px; font-weight: 500;">Price ($)</label><input type="number" id="coursePrice" step="0.01" value="0" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box;"></div>
+                    <div class="form-group" style="flex: 1;"><label style="display: block; margin-bottom: 8px; font-weight: 500;">Difficulty</label><select id="courseDifficulty" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box;"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
                     <button type="button" onclick="closeCourseModal()" class="btn btn-outline" style="flex: 1;">Cancel</button>
@@ -838,19 +960,20 @@ What would you like to learn today?</div></div>
             document.getElementById('adminCourseCount').textContent = adminCourses.length;
             const list = document.getElementById('adminCoursesList');
             list.innerHTML = adminCourses.map(course => `
-                <div class="course-card" style="cursor: default;">
-                    <div class="course-image">📚</div>
-                    <div class="course-content">
-                        <span class="course-badge">${course.difficulty}</span>
-                        <h3>${course.title}</h3>
-                        <p>${course.description || 'No description'}</p>
-                        <div class="course-meta">
-                            <span class="course-students">👥 ${(course.total_students || 0).toLocaleString()} students</span>
-                            <span class="course-price">${course.price === 0 ? 'Free' : '$' + course.price}</span>
+                <div class="course-card" style="background: var(--surface); border-radius: 12px; padding: 20px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <span class="course-badge">${course.difficulty}</span>
+                            <h3 style="margin: 8px 0;">${course.title}</h3>
+                            <p style="color: var(--text-secondary); margin: 0;">${course.description || 'No description'}</p>
                         </div>
-                        <div style="display: flex; gap: 8px; margin-top: 12px;">
-                            <button class="btn btn-outline" style="flex: 1; padding: 8px;" onclick="editCourse('${course.id}')">Edit</button>
-                            <button class="btn" style="flex: 1; padding: 8px; background: var(--error); color: white; border: none;" onclick="deleteCourse('${course.id}')">Delete</button>
+                        <span style="font-size: 20px; background: var(--primary); color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold;">${course.price === 0 ? 'FREE' : '$' + course.price}</span>
+                    </div>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">👥 ${(course.total_students || 0).toLocaleString()} students</span>
+                        <div class="admin-actions">
+                            <button class="btn-edit" onclick="editCourse('${course.id}')">✏️ Edit</button>
+                            <button class="btn-delete" onclick="deleteCourse('${course.id}')">🗑️ Delete</button>
                         </div>
                     </div>
                 </div>
