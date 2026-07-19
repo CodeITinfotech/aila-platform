@@ -411,24 +411,131 @@
     <div id="page-admin" class="page">
         <section style="padding: 40px 0; background: var(--bg);">
             <div class="container">
-                <div class="back-btn" onclick="navigateTo('home')">← Logout</div>
-                <h1 style="margin-bottom: 32px;">Admin Dashboard</h1>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+                    <h1>Admin Dashboard</h1>
+                    <button class="btn btn-outline" onclick="navigateTo('home')">← Logout</button>
+                </div>
+                
+                <!-- Admin Stats -->
                 <div class="admin-stats">
                     <div class="admin-stat"><h4>5,420</h4><span>Total Students</span></div>
-                    <div class="admin-stat"><h4>127</h4><span>Courses</span></div>
+                    <div class="admin-stat"><h4 id="adminCourseCount">5</h4><span>Courses</span></div>
                     <div class="admin-stat"><h4>$12,450</h4><span>Revenue</span></div>
                     <div class="admin-stat"><h4>89%</h4><span>Completion Rate</span></div>
                 </div>
-                <div style="margin-top: 40px; background: var(--surface); border-radius: 12px; padding: 24px;">
-                    <h3 style="margin-bottom: 16px;">Recent Activity</h3>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <div style="padding: 12px; background: var(--bg); border-radius: 8px; display: flex; justify-content: space-between;"><span>New user registered</span><span style="color: var(--text-secondary);">2 min ago</span></div>
-                        <div style="padding: 12px; background: var(--bg); border-radius: 8px; display: flex; justify-content: space-between;"><span>Course purchased: Python Fundamentals</span><span style="color: var(--text-secondary);">5 min ago</span></div>
-                        <div style="padding: 12px; background: var(--bg); border-radius: 8px; display: flex; justify-content: space-between;"><span>New enrollment: Data Science</span><span style="color: var(--text-secondary);">12 min ago</span></div>
+                
+                <!-- Admin Tabs -->
+                <div style="margin-top: 32px;">
+                    <div class="course-tabs" style="border-bottom: 2px solid var(--border);">
+                        <div class="course-tab active" onclick="switchAdminTab(this, 'courses')">📚 Courses</div>
+                        <div class="course-tab" onclick="switchAdminTab(this, 'students')">👥 Students</div>
+                        <div class="course-tab" onclick="switchAdminTab(this, 'activity')">📊 Activity</div>
+                        <div class="course-tab" onclick="switchAdminTab(this, 'settings')">⚙️ Settings</div>
+                    </div>
+                    
+                    <!-- Courses Tab -->
+                    <div id="admin-courses" class="course-tab-content active">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin: 24px 0;">
+                            <h3>Manage Courses</h3>
+                            <button class="btn btn-primary" onclick="showAddCourseModal()">+ Add Course</button>
+                        </div>
+                        <div id="adminCoursesList" class="courses-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+                            <!-- Courses loaded dynamically -->
+                        </div>
+                    </div>
+                    
+                    <!-- Students Tab -->
+                    <div id="admin-students" class="course-tab-content">
+                        <div style="margin: 24px 0;">
+                            <h3>Manage Students</h3>
+                            <div style="display: flex; gap: 12px; margin-top: 16px;">
+                                <input type="text" placeholder="Search students..." style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 8px;">
+                                <button class="btn btn-outline">Search</button>
+                            </div>
+                        </div>
+                        <div id="adminStudentsList" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="padding: 16px; background: var(--surface); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <div><strong>Alex Chen</strong><br><small style="color: var(--text-secondary);">alex@example.com</small></div>
+                                <span style="background: var(--secondary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">Premium</span>
+                            </div>
+                            <div style="padding: 16px; background: var(--surface); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <div><strong>Maria Garcia</strong><br><small style="color: var(--text-secondary);">maria@example.com</small></div>
+                                <span style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">Free</span>
+                            </div>
+                            <div style="padding: 16px; background: var(--surface); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <div><strong>James Wilson</strong><br><small style="color: var(--text-secondary);">james@example.com</small></div>
+                                <span style="background: var(--secondary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">Premium</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Activity Tab -->
+                    <div id="admin-activity" class="course-tab-content">
+                        <div style="margin: 24px 0;">
+                            <h3>Recent Activity</h3>
+                            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+                                <div style="padding: 16px; background: var(--surface); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 24px;">👤</span>
+                                    <div style="flex: 1;"><strong>New user registered</strong><br><small style="color: var(--text-secondary);">john@example.com</small></div>
+                                    <small style="color: var(--text-secondary);">2 min ago</small>
+                                </div>
+                                <div style="padding: 16px; background: var(--surface); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 24px;">💳</span>
+                                    <div style="flex: 1;"><strong>Course purchased</strong><br><small style="color: var(--text-secondary);">Python Fundamentals by sarah@example.com</small></div>
+                                    <small style="color: var(--text-secondary);">5 min ago</small>
+                                </div>
+                                <div style="padding: 16px; background: var(--surface); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 24px;">📚</span>
+                                    <div style="flex: 1;"><strong>New enrollment</strong><br><small style="color: var(--text-secondary);">Data Science Basics - alex@example.com</small></div>
+                                    <small style="color: var(--text-secondary);">12 min ago</small>
+                                </div>
+                                <div style="padding: 16px; background: var(--surface); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 24px;">⭐</span>
+                                    <div style="flex: 1;"><strong>New review</strong><br><small style="color: var(--text-secondary);">5 stars on Machine Learning</small></div>
+                                    <small style="color: var(--text-secondary);">1 hour ago</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Settings Tab -->
+                    <div id="admin-settings" class="course-tab-content">
+                        <div style="margin: 24px 0;">
+                            <h3>Platform Settings</h3>
+                            <div style="background: var(--surface); border-radius: 12px; padding: 24px; margin-top: 16px;">
+                                <div class="form-group"><label>Platform Name</label><input type="text" value="AILA Learning Platform" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></div>
+                                <div class="form-group"><label>Support Email</label><input type="email" value="support@aila.com" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></div>
+                                <div class="form-group"><label>Platform Commission (%)</label><input type="number" value="30" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></div>
+                                <button class="btn btn-primary" onclick="alert('Settings saved!')">Save Settings</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
+    </div>
+    
+    <!-- Add/Edit Course Modal -->
+    <div id="courseModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 32px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 24px;">
+                <h2 id="modalTitle">Add New Course</h2>
+                <span onclick="closeCourseModal()" style="cursor: pointer; font-size: 24px;">×</span>
+            </div>
+            <form onsubmit="saveCourse(event)">
+                <input type="hidden" id="courseId">
+                <div class="form-group"><label>Course Title</label><input type="text" id="courseTitle" required placeholder="e.g., Python Fundamentals" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></div>
+                <div class="form-group"><label>Description</label><textarea id="courseDesc" rows="3" placeholder="Course description..." style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></textarea></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Price ($)</label><input type="number" id="coursePrice" step="0.01" value="0" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"></div>
+                    <div class="form-group"><label>Difficulty</label><select id="courseDifficulty" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button type="button" onclick="closeCourseModal()" class="btn btn-outline" style="flex: 1;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Course</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- AI Tutor Page -->
@@ -532,6 +639,13 @@ What would you like to learn today?</div></div>
         let currentCourse = null;
         let previousPage = 'courses';
         let coursesData = [];
+        let adminCourses = [
+            {id: "1", title: "Python Fundamentals", description: "Learn Python from scratch", price: 0, difficulty: "beginner", total_students: 15420},
+            {id: "2", title: "Advanced JavaScript", description: "Master modern JavaScript", price: 49.99, difficulty: "advanced", total_students: 8950},
+            {id: "3", title: "Data Science Basics", description: "Introduction to Data Science", price: 0, difficulty: "intermediate", total_students: 12300},
+            {id: "4", title: "Machine Learning", description: "AI and ML fundamentals", price: 79.99, difficulty: "advanced", total_students: 6780},
+            {id: "5", title: "Web Development", description: "Full-stack web development", price: 39.99, difficulty: "intermediate", total_students: 15200}
+        ];
 
         async function checkHealth() {
             try {
@@ -714,9 +828,98 @@ What would you like to learn today?</div></div>
             const password = document.getElementById('adminPassword').value;
             if (email === 'admin@aila.com' && password === 'admin123') {
                 navigateTo('admin');
+                loadAdminCourses();
             } else {
                 alert('Invalid credentials!');
             }
+        }
+
+        function loadAdminCourses() {
+            document.getElementById('adminCourseCount').textContent = adminCourses.length;
+            const list = document.getElementById('adminCoursesList');
+            list.innerHTML = adminCourses.map(course => `
+                <div class="course-card" style="cursor: default;">
+                    <div class="course-image">📚</div>
+                    <div class="course-content">
+                        <span class="course-badge">${course.difficulty}</span>
+                        <h3>${course.title}</h3>
+                        <p>${course.description || 'No description'}</p>
+                        <div class="course-meta">
+                            <span class="course-students">👥 ${(course.total_students || 0).toLocaleString()} students</span>
+                            <span class="course-price">${course.price === 0 ? 'Free' : '$' + course.price}</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button class="btn btn-outline" style="flex: 1; padding: 8px;" onclick="editCourse('${course.id}')">Edit</button>
+                            <button class="btn" style="flex: 1; padding: 8px; background: var(--error); color: white; border: none;" onclick="deleteCourse('${course.id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function switchAdminTab(tab, tabId) {
+            document.querySelectorAll('#page-admin .course-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#page-admin .course-tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`admin-${tabId}`).classList.add('active');
+        }
+
+        function showAddCourseModal() {
+            document.getElementById('modalTitle').textContent = 'Add New Course';
+            document.getElementById('courseId').value = '';
+            document.getElementById('courseTitle').value = '';
+            document.getElementById('courseDesc').value = '';
+            document.getElementById('coursePrice').value = '0';
+            document.getElementById('courseDifficulty').value = 'beginner';
+            document.getElementById('courseModal').style.display = 'flex';
+        }
+
+        function editCourse(id) {
+            const course = adminCourses.find(c => c.id === id);
+            if (course) {
+                document.getElementById('modalTitle').textContent = 'Edit Course';
+                document.getElementById('courseId').value = course.id;
+                document.getElementById('courseTitle').value = course.title;
+                document.getElementById('courseDesc').value = course.description || '';
+                document.getElementById('coursePrice').value = course.price;
+                document.getElementById('courseDifficulty').value = course.difficulty;
+                document.getElementById('courseModal').style.display = 'flex';
+            }
+        }
+
+        function deleteCourse(id) {
+            if (confirm('Are you sure you want to delete this course?')) {
+                adminCourses = adminCourses.filter(c => c.id !== id);
+                loadAdminCourses();
+            }
+        }
+
+        function closeCourseModal() {
+            document.getElementById('courseModal').style.display = 'none';
+        }
+
+        function saveCourse(e) {
+            e.preventDefault();
+            const id = document.getElementById('courseId').value;
+            const title = document.getElementById('courseTitle').value;
+            const description = document.getElementById('courseDesc').value;
+            const price = parseFloat(document.getElementById('coursePrice').value);
+            const difficulty = document.getElementById('courseDifficulty').value;
+
+            if (id) {
+                // Update existing course
+                const index = adminCourses.findIndex(c => c.id === id);
+                if (index !== -1) {
+                    adminCourses[index] = { ...adminCourses[index], title, description, price, difficulty };
+                }
+            } else {
+                // Add new course
+                const newId = String(Date.now());
+                adminCourses.push({ id: newId, title, description, price, difficulty, total_students: 0 });
+            }
+
+            closeCourseModal();
+            loadAdminCourses();
         }
 
         function selectPlan(plan) {
